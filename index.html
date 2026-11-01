@@ -35,16 +35,16 @@ input[type=text],input[type=number],#nm,#tx,#hp{width:100%;padding:14px;border-r
 <script>
 firebase.initializeApp(CONFIG.firebase);
 const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
-const VERSIE='1.6';
+const VERSIE='1.7';
 const $=id=>document.getElementById(id);
 document.getElementById('ver').textContent='Versie '+VERSIE;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 let off=0,S={phase:'lobby',idx:-1},P={},A={},V={},sig='',curKey='',fired=false;
-let me=localStorage.getItem('g50pid'),host=localStorage.getItem('g50host')==='1';
+let me=localStorage.getItem('g50pid'),host=false,RS=0;
 db.ref('.info/serverTimeOffset').on('value',s=>off=s.val()||0);
 const now=()=>Date.now()+off;
-R.on('value',s=>{const v=s.val()||{};S=v.state||{phase:'lobby',idx:-1};P=v.players||{};A=v.answers||{};V=v.votes||{};
+R.on('value',s=>{const v=s.val()||{};S=v.state||{phase:'lobby',idx:-1};P=v.players||{};A=v.answers||{};V=v.votes||{};RS=v.reset||0;host=localStorage.getItem('g50host')===String(RS);
  render()});
 
 function render(){const my=(A[S.idx]||{})[me],mv=(V[S.idx]||{})[me];
@@ -67,7 +67,7 @@ function lobbyH(){let h=`<h1>Gouden Quiz</h1><p>Wacht tot de host het spel start
  if(host)h+=`<button class="b" onclick="go('q',0)">Start het spel</button>`;
  else h+=`<div id="hl"><button class="b" onclick="hostForm()">Ik ben host</button></div>`;return h}
 function hostForm(){$('hl').innerHTML='<input id="hp" type="password" inputmode="numeric" autocomplete="off" placeholder="Pincode"><button class="b" onclick="checkPin()">Bevestigen</button>'}
-function checkPin(){if($('hp').value===CONFIG.HOST_PIN){host=true;localStorage.setItem('g50host','1');sig='';render()}else{alert('Onjuiste pincode');$('hp').value=''}}
+function checkPin(){if($('hp').value===CONFIG.HOST_PIN){host=true;localStorage.setItem('g50host',String(RS));sig='';render()}else{alert('Onjuiste pincode');$('hp').value=''}}
 
 function qH(q){const my=(A[S.idx]||{})[me];
  let h=`<div class="top"><span>Vraag ${S.idx+1} van ${VRAGEN.length}</span><span id="tm"></span></div><div id="cd" class="cd"></div><h2>${esc(q.q)}</h2>`;
@@ -127,7 +127,7 @@ function nextQ(i){if(S.phase!=='reveal'||S.idx!==i)return;S.idx+1<VRAGEN.length?
 function showInd(){R.child('state/ind').set(true)}
 function plus15(){if(S.phase==='q')R.child('state/end').set(now()+15000)}
 function toReveal(){if(S.phase!=='q'&&S.phase!=='vote')return;const q=VRAGEN[S.idx];go(S.phase==='q'&&q.t==='photo'&&Object.keys(A[S.idx]||{}).length>1?'vote':'reveal',S.idx)}
-function resetG(){if(confirm('Alles wissen, ook alle spelers? Iedereen kiest daarna opnieuw naam en auto.'))R.remove()}
+function resetG(){if(confirm('Alles wissen, ook alle spelers? Iedereen kiest daarna opnieuw naam en auto.'))R.set({reset:Date.now()})}
 
 setInterval(()=>{const n=now(),q=VRAGEN[S.idx],a=A[S.idx]||{},ids=Object.keys(P);
  if($('tm'))$('tm').textContent=Math.max(0,Math.ceil((S.end-n)/1000))+' s';
