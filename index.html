@@ -35,7 +35,7 @@ input[type=text],input[type=number],#nm,#tx,#hp{width:100%;padding:14px;border-r
 <script>
 firebase.initializeApp(CONFIG.firebase);
 const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
-const VERSIE='1.5';
+const VERSIE='1.6';
 const $=id=>document.getElementById(id);
 document.getElementById('ver').textContent='Versie '+VERSIE;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -72,6 +72,7 @@ function checkPin(){if($('hp').value===CONFIG.HOST_PIN){host=true;localStorage.s
 function qH(q){const my=(A[S.idx]||{})[me];
  let h=`<div class="top"><span>Vraag ${S.idx+1} van ${VRAGEN.length}</span><span id="tm"></span></div><div id="cd" class="cd"></div><h2>${esc(q.q)}</h2>`;
  if(q.tip)h+=`<p class="tip">${esc(q.tip)}</p>`;
+ if(/^https?:\/\//.test(q.link||''))h+=`<a id="lk" class="b" style="display:none;text-align:center;text-decoration:none" href="${esc(q.link)}" target="_blank" rel="noopener">Open nummer in Spotify</a>`;
  if(my)return h+`<p class="ok">Antwoord verstuurd</p><p id="cnt" class="tip"></p>`;
  h+='<p id="tu" class="ok" style="display:none">De tijd is om. Wacht op de host.</p><div id="inp" style="display:none">';
  if(q.t==='mc')h+=q.o.map((o,i)=>`<button class="b" onclick="ans(${i})">${esc(o)}</button>`).join('');
@@ -91,9 +92,15 @@ function voteH(q){const a=A[S.idx]||{},mv=(V[S.idx]||{})[me];
  h+='<div class="g">';for(const k in a)if(k!==me)h+=`<img src="${a[k].v}" onclick="vote('${k}')">`;return h+'</div>'}
 function vote(k){if((V[S.idx]||{})[me])return;R.child('votes/'+S.idx+'/'+me).set(k)}
 
+function lev(a,b){let d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let pr=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,pr+(a[i-1]===b[j-1]?0:1));pr=t}}return d[b.length]}
+function match(v,list){const x=norm(v);if(!x)return 0;let best=0;
+ for(const c of list){const y=norm(c);if(!y)continue;if(x===y)return 1;if(y.length>=4&&x.includes(y))return 1;
+  const t=y.length<=3?0:y.length<=6?1:2;
+  if(lev(x,y)<=t||(x.length>=4&&y.includes(x)&&x.length>=y.length*.6))best=.5}
+ return best}
 function pts(i){const q=VRAGEN[i],a=A[i]||{},r={},p=q.p||10;
  if(q.t==='mc')for(const k in a)if(+a[k].v===q.a)r[k]=p;
- if(q.t==='open'||q.t==='music')for(const k in a)if(q.a.some(x=>norm(x)===norm(a[k].v)))r[k]=p;
+ if(q.t==='open'||q.t==='music')for(const k in a){const m=match(a[k].v,q.a);if(m)r[k]=Math.round(p*m)}
  if(q.t==='guess'){let b=1e18;for(const k in a)b=Math.min(b,Math.abs(a[k].v-q.a));for(const k in a)if(Math.abs(a[k].v-q.a)===b)r[k]=p}
  if(q.t==='photo'){const v=V[i]||{};for(const k in v)r[v[k]]=(r[v[k]]||0)+5}return r}
 function totals(){const t={};for(const k in P)t[k]=0;const last=(S.phase==='q'||S.phase==='vote')?S.idx-1:S.idx;
@@ -126,7 +133,8 @@ setInterval(()=>{const n=now(),q=VRAGEN[S.idx],a=A[S.idx]||{},ids=Object.keys(P)
  if($('tm'))$('tm').textContent=Math.max(0,Math.ceil((S.end-n)/1000))+' s';
  if($('cd')){const d=Math.ceil((S.start-n)/1000);$('cd').textContent=d>0?(q.t==='music'?'Muziek start over ':'Start over ')+d:'';
   if($('inp'))$('inp').style.display=(d>0||n>S.end)?'none':'block';
-  if($('tu'))$('tu').style.display=(d<=0&&n>S.end)?'block':'none'}
+  if($('tu'))$('tu').style.display=(d<=0&&n>S.end)?'block':'none';
+  if($('lk'))$('lk').style.display=d<=0?'block':'none'}
  if($('cnt')){const c=S.phase==='vote'?Object.keys(V[S.idx]||{}).length:Object.keys(a).length;$('cnt').textContent=c+' van '+ids.length+' klaar'}
  if($('hs')){const src=S.phase==='vote'?(V[S.idx]||{}):a;
   const all=ids.length>0&&ids.every(k=>src[k]);

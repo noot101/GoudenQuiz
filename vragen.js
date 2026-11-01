@@ -1,12 +1,15 @@
 // === Pas hier de vragen aan. Ze worden in deze volgorde gespeeld. ===
-// 	t: 'mc' (meerkeuze, a = nummer van goede optie, begin bij 0)
+// t: 'mc' (meerkeuze, a = nummer van goede optie, begin bij 0)
 //    'open' (open vraag, a = lijst met goede antwoorden)
 //    'music' (zoals open, maar met aftelling "muziek start over N"; zet de afspeellijst klaar)
 //    'guess' (schatvraag, a = getal; dichtstbijzijnde wint)
 //    'photo' (foto-opdracht; iedereen stemt, 5 punten per stem)
+// link = (alleen music) Spotify-link; verschijnt als knop zodra de aftelling bij 0 is
+//   Open vragen worden slim nagekeken: kleine typefouten geven de helft van de punten,
+//   een antwoord dat het goede woord bevat (bv. 'koninklijk huwelijk') geeft alle punten.
 // tijd = seconden om te antwoorden, wacht = seconden aftellen vooraf, p = punten
 const VRAGEN = [
-  {t:'music', q:'Zet nummer 1 van de 1976-afspeellijst aan. Welke artiest zingt het?', a:['VUL IN'], tijd:30, wacht:10, tip:'Iedereen drukt bij 0 tegelijk op play.'},
+  {t:'music', q:'Zet nummer 1 van de 1976-afspeellijst aan. Welke artiest zingt het?', a:['VUL IN'], tijd:30, wacht:10, link:'https://open.spotify.com/track/VUL-IN', tip:'Iedereen drukt bij 0 tegelijk op play.'},
   {t:'mc', q:'In welk jaar zijn Opa en Oma getrouwd?', o:['1975','1976','1977','1978'], a:1, tijd:15},
   {t:'mc', q:'Wat was hun eerste auto? [VUL IN]', o:['VUL IN','VUL IN','VUL IN','VUL IN'], a:0, tijd:20},
   {t:'photo', q:'Foto van het gekste nummerbord of de gekste auto die je ziet. Alleen passagiers fotograferen!', tijd:90},
