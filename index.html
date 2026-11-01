@@ -1,15 +1,17 @@
 <!doctype html><html lang="nl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Goud 50</title>
+<title>Gouden Quiz</title>
 <style>
-:root{--bg:#25101b;--bg2:#3a1b2b;--gold:#e8c15a;--ink:#f6efe0;--mut:#b9a7a8}
+:root{--bg:#04150e;--bg2:rgba(6,40,28,.82);--gold:#e6bd55;--ink:#f7f0dc;--mut:#b5c2b4}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-#app{max-width:560px;margin:0 auto;padding:18px 16px 90px}
+body{margin:0;background:var(--bg) url(achtergrond.jpg) center top/cover fixed no-repeat;min-height:100vh;color:var(--ink);font:17px/1.4 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#app{max-width:560px;margin:0 auto;padding:18px 16px 10px}
+#ver{text-align:center;color:var(--mut);font-size:.8em;padding:0 0 90px}
 h1,h2{font-family:Georgia,serif;font-weight:700;margin:.3em 0}
-h1{font-size:2.4em;color:var(--gold)}h2{font-size:1.35em}
+h1{font-size:2.6em;color:var(--gold);text-align:center;margin:.6em 0 .2em;text-shadow:0 0 18px rgba(230,189,85,.35)}h2{font-size:1.35em}
 .b{display:block;width:100%;margin:8px 0;padding:14px;border:2px solid var(--gold);border-radius:10px;background:var(--bg2);color:var(--ink);font:inherit;font-weight:600}
 .b:active{background:var(--gold);color:var(--bg)}
+.b,.car{backdrop-filter:blur(2px)}
 .row{display:flex;gap:8px}.row .b{flex:1}
 input[type=text],input[type=number],#nm,#tx{width:100%;padding:14px;border-radius:10px;border:2px solid var(--mut);background:#fff;color:#222;font:inherit;margin:8px 0}
 .top{display:flex;justify-content:space-between;color:var(--mut)}
@@ -21,16 +23,18 @@ input[type=text],input[type=number],#nm,#tx{width:100%;padding:14px;border-radiu
 .g img{width:100%;border-radius:8px;border:2px solid var(--bg2);display:block}
 .car{display:flex;justify-content:space-between;font:700 1.3em Georgia,serif;padding:10px 14px;margin:6px 0;border-radius:10px;background:var(--bg2)}
 .car.w{background:var(--gold);color:var(--bg)}
-.hb{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#000c}
+.hb{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#000d}
 .hb button{flex:1;padding:12px;border-radius:8px;border:0;font:inherit;font-weight:600}
-</style></head><body><div id="app"></div>
+</style></head><body><div id="app"></div><div id="ver"></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="config.js"></script><script src="vragen.js"></script>
 <script>
 firebase.initializeApp(CONFIG.firebase);
 const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
+const VERSIE='1.2';
 const $=id=>document.getElementById(id);
+document.getElementById('ver').textContent='Versie '+VERSIE;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 let off=0,S={phase:'lobby',idx:-1},P={},A={},V={},sig='',curKey='',fired=false;
@@ -47,10 +51,10 @@ function draw(){const q=VRAGEN[S.idx];let h;
  else if(S.phase==='vote')h=voteH(q);else if(S.phase==='reveal')h=revealH(q);else h=endH();
  $('app').innerHTML=h+(host?'<div class="hb"><button onclick="skip()">Overslaan</button><button onclick="resetG()">Reset spel</button></div>':'')}
 
-function joinH(){return `<h1>Goud 50</h1><h2>Quiz voor ons gouden bruidspaar</h2><input id="nm" placeholder="Jouw naam" maxlength="14"><p>In welke auto zit je?</p><div class="row">${CONFIG.CARS.map((c,i)=>`<button class="b" onclick="join(${i})">${esc(c)}</button>`).join('')}</div>`}
+function joinH(){return `<h1>Gouden Quiz</h1><h2>Voor ons gouden bruidspaar</h2><input id="nm" placeholder="Jouw naam" maxlength="14"><p>In welke auto zit je?</p><div class="row">${CONFIG.CARS.map((c,i)=>`<button class="b" onclick="join(${i})">${esc(c)}</button>`).join('')}</div>`}
 function join(c){const n=$('nm').value.trim();if(!n){alert('Vul eerst je naam in');return}
  me=me||Math.random().toString(36).slice(2,9);localStorage.setItem('g50pid',me);R.child('players/'+me).set({n,c})}
-function lobbyH(){let h=`<h1>Goud 50</h1><p>Wacht tot de host het spel start.</p>`;
+function lobbyH(){let h=`<h1>Gouden Quiz</h1><p>Wacht tot de host het spel start.</p>`;
  CONFIG.CARS.forEach((c,i)=>{h+=`<h2>${esc(c)}</h2><p>${Object.values(P).filter(p=>p.c===i).map(p=>esc(p.n)).join(', ')||'-'}</p>`});
  if(host)h+=`<button class="b" onclick="go('q',0)">Start het spel</button>`;
  else h+=`<button class="b" onclick="becomeHost()">Ik ben host</button>`;return h}
