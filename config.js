@@ -8,5 +8,5 @@ const CONFIG = {
   },
   ROOM: "gouden50",          // mag je laten staan
   HOST_PIN: "1976",          // pincode voor de host(s)
-  CARS: ["Auto 1", "Auto 2"] // namen van de teams
+  CARS: ["Volkswagen", "Hyundai"] // namen van de teams
 };
