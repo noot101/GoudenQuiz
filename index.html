@@ -35,7 +35,7 @@ input[type=text],input[type=number],#nm,#tx,#hp{width:100%;padding:14px;border-r
 <script>
 firebase.initializeApp(CONFIG.firebase);
 const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
-const VERSIE='1.4';
+const VERSIE='1.5';
 const $=id=>document.getElementById(id);
 document.getElementById('ver').textContent='Versie '+VERSIE;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -48,13 +48,14 @@ R.on('value',s=>{const v=s.val()||{};S=v.state||{phase:'lobby',idx:-1};P=v.playe
  render()});
 
 function render(){const my=(A[S.idx]||{})[me],mv=(V[S.idx]||{})[me];
- const s=[S.phase,S.idx,!!P[me],!!my,!!mv,Object.keys(P).length,host].join();if(s===sig)return;sig=s;draw()}
+ const s=[S.phase,S.idx,!!S.ind,!!P[me],!!my,!!mv,Object.keys(P).length,host].join();if(s===sig)return;sig=s;draw()}
 function draw(){const q=VRAGEN[S.idx];let h;
  if(!P[me])h=joinH();else if(S.phase==='lobby')h=lobbyH();else if(S.phase==='q')h=qH(q);
  else if(S.phase==='vote')h=voteH(q);else if(S.phase==='reveal')h=revealH(q);else h=endH();
  $('app').innerHTML=h+(host?hostBar():'')}
 function hostBar(){const p=S.phase;let h='<div class="hb">';
  if(p==='q'||p==='vote')h+='<div id="hs" class="hs"></div>'+(p==='q'?'<button onclick="plus15()">+15 sec</button>':'')+'<button id="hn" onclick="toReveal()">Toon uitslag</button>';
+ else if(p==='end'&&!S.ind)h+='<button class="rdy" onclick="showInd()">Toon individuele stand</button>';
  else if(p==='reveal')h+=`<button class="rdy" onclick="nextQ(${S.idx})">${S.idx+1<VRAGEN.length?'Volgende vraag':'Eindstand'}</button>`;
  return h+'<button class="sm" onclick="resetG()">Alles wissen</button></div>'}
 
@@ -100,6 +101,8 @@ function totals(){const t={};for(const k in P)t[k]=0;const last=(S.phase==='q'||
 function board(fin){const t=totals(),c=CONFIG.CARS.map(()=>0);for(const k in t)c[P[k].c]+=t[k];
  const top=Math.max(...c);
  let h=CONFIG.CARS.map((n,i)=>`<div class="car ${fin&&c[i]===top?'w':''}"><span>${esc(n)}</span><span>${c[i]}</span></div>`).join('');
+ if(!fin)return h;
+ if(!S.ind)return h+'<p class="tip">De individuele stand wordt zo onthuld...</p>';
  h+='<h2>Individueel</h2>'+Object.keys(t).sort((a,b)=>t[b]-t[a]).map(k=>`<div class="r"><span>${esc(P[k].n)} <small>${esc(CONFIG.CARS[P[k].c])}</small></span><b>${t[k]}</b></div>`).join('');return h}
 function revealH(q){const a=A[S.idx]||{},r=pts(S.idx);let h=`<div class="top"><span>Uitslag</span></div><h2>${esc(q.q)}</h2>`;
  if(q.t==='mc')h+=`<p class="ok">Goed antwoord: ${esc(q.o[q.a])}</p>`;
@@ -114,6 +117,7 @@ function go(ph,idx){const q=VRAGEN[idx],n=now(),st={phase:ph,idx};
  if(ph==='q'){st.start=n+(q.wacht||3)*1000;st.end=st.start+(q.tijd||20)*1000}
  else{st.start=n;st.end=n+(ph==='vote'?30000:12000)}R.child('state').set(st)}
 function nextQ(i){if(S.phase!=='reveal'||S.idx!==i)return;S.idx+1<VRAGEN.length?go('q',S.idx+1):R.child('state').set({phase:'end',idx:S.idx})}
+function showInd(){R.child('state/ind').set(true)}
 function plus15(){if(S.phase==='q')R.child('state/end').set(now()+15000)}
 function toReveal(){if(S.phase!=='q'&&S.phase!=='vote')return;const q=VRAGEN[S.idx];go(S.phase==='q'&&q.t==='photo'&&Object.keys(A[S.idx]||{}).length>1?'vote':'reveal',S.idx)}
 function resetG(){if(confirm('Alles wissen, ook alle spelers? Iedereen kiest daarna opnieuw naam en auto.'))R.remove()}
