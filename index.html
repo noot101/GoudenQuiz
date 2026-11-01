@@ -1,0 +1,118 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Goud 50</title>
+<style>
+:root{--bg:#25101b;--bg2:#3a1b2b;--gold:#e8c15a;--ink:#f6efe0;--mut:#b9a7a8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#app{max-width:560px;margin:0 auto;padding:18px 16px 90px}
+h1,h2{font-family:Georgia,serif;font-weight:700;margin:.3em 0}
+h1{font-size:2.4em;color:var(--gold)}h2{font-size:1.35em}
+.b{display:block;width:100%;margin:8px 0;padding:14px;border:2px solid var(--gold);border-radius:10px;background:var(--bg2);color:var(--ink);font:inherit;font-weight:600}
+.b:active{background:var(--gold);color:var(--bg)}
+.row{display:flex;gap:8px}.row .b{flex:1}
+input[type=text],input[type=number],#nm,#tx{width:100%;padding:14px;border-radius:10px;border:2px solid var(--mut);background:#fff;color:#222;font:inherit;margin:8px 0}
+.top{display:flex;justify-content:space-between;color:var(--mut)}
+.cd{font:700 2.6em Georgia,serif;color:var(--gold);text-align:center;margin:10px 0}
+.ok{color:var(--gold);font-weight:700}.tip,small{color:var(--mut)}
+.r{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg2)}
+.r b{color:var(--gold);white-space:nowrap}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g img{width:100%;border-radius:8px;border:2px solid var(--bg2);display:block}
+.car{display:flex;justify-content:space-between;font:700 1.3em Georgia,serif;padding:10px 14px;margin:6px 0;border-radius:10px;background:var(--bg2)}
+.car.w{background:var(--gold);color:var(--bg)}
+.hb{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#000c}
+.hb button{flex:1;padding:12px;border-radius:8px;border:0;font:inherit;font-weight:600}
+</style></head><body><div id="app"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="config.js"></script><script src="vragen.js"></script>
+<script>
+firebase.initializeApp(CONFIG.firebase);
+const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+let off=0,S={phase:'lobby',idx:-1},P={},A={},V={},sig='',curKey='',fired=false;
+let me=localStorage.getItem('g50pid'),host=localStorage.getItem('g50host')==='1';
+db.ref('.info/serverTimeOffset').on('value',s=>off=s.val()||0);
+const now=()=>Date.now()+off;
+R.on('value',s=>{const v=s.val()||{};S=v.state||{phase:'lobby',idx:-1};P=v.players||{};A=v.answers||{};V=v.votes||{};
+ const k=S.phase+S.idx;if(k!==curKey){curKey=k;fired=false}render()});
+
+function render(){const my=(A[S.idx]||{})[me],mv=(V[S.idx]||{})[me];
+ const s=[S.phase,S.idx,!!P[me],!!my,!!mv,Object.keys(P).length,host].join();if(s===sig)return;sig=s;draw()}
+function draw(){const q=VRAGEN[S.idx];let h;
+ if(!P[me])h=joinH();else if(S.phase==='lobby')h=lobbyH();else if(S.phase==='q')h=qH(q);
+ else if(S.phase==='vote')h=voteH(q);else if(S.phase==='reveal')h=revealH(q);else h=endH();
+ $('app').innerHTML=h+(host?'<div class="hb"><button onclick="skip()">Overslaan</button><button onclick="resetG()">Reset spel</button></div>':'')}
+
+function joinH(){return `<h1>Goud 50</h1><h2>Quiz voor ons gouden bruidspaar</h2><input id="nm" placeholder="Jouw naam" maxlength="14"><p>In welke auto zit je?</p><div class="row">${CONFIG.CARS.map((c,i)=>`<button class="b" onclick="join(${i})">${esc(c)}</button>`).join('')}</div>`}
+function join(c){const n=$('nm').value.trim();if(!n){alert('Vul eerst je naam in');return}
+ me=me||Math.random().toString(36).slice(2,9);localStorage.setItem('g50pid',me);R.child('players/'+me).set({n,c})}
+function lobbyH(){let h=`<h1>Goud 50</h1><p>Wacht tot de host het spel start.</p>`;
+ CONFIG.CARS.forEach((c,i)=>{h+=`<h2>${esc(c)}</h2><p>${Object.values(P).filter(p=>p.c===i).map(p=>esc(p.n)).join(', ')||'-'}</p>`});
+ if(host)h+=`<button class="b" onclick="go('q',0)">Start het spel</button>`;
+ else h+=`<button class="b" onclick="becomeHost()">Ik ben host</button>`;return h}
+function becomeHost(){if(prompt('Pincode host')===CONFIG.HOST_PIN){host=true;localStorage.setItem('g50host','1');sig='';render()}}
+
+function qH(q){const my=(A[S.idx]||{})[me];
+ let h=`<div class="top"><span>Vraag ${S.idx+1} van ${VRAGEN.length}</span><span id="tm"></span></div><div id="cd" class="cd"></div><h2>${esc(q.q)}</h2>`;
+ if(q.tip)h+=`<p class="tip">${esc(q.tip)}</p>`;
+ if(my)return h+`<p class="ok">Antwoord verstuurd</p><p id="cnt" class="tip"></p>`;
+ h+='<div id="inp" style="display:none">';
+ if(q.t==='mc')h+=q.o.map((o,i)=>`<button class="b" onclick="ans(${i})">${esc(o)}</button>`).join('');
+ else if(q.t==='photo')h+=`<input type="file" accept="image/*" capture="environment" onchange="photo(this)"><p class="tip">Maak een foto of kies er een.</p>`;
+ else h+=`<input id="tx" type="${q.t==='guess'?'text':'text'}" inputmode="${q.t==='guess'?'decimal':'text'}" placeholder="Jouw antwoord" autocomplete="off"><button class="b" onclick="sendTx()">Versturen</button>`;
+ return h+'</div><p id="cnt" class="tip"></p>'}
+function sendTx(){const q=VRAGEN[S.idx],t=$('tx').value.trim();
+ ans(q.t==='guess'?parseFloat(t.replace(/\./g,'').replace(',','.')):t)}
+function ans(v){const n=now();if(n<S.start||n>S.end+1500||(A[S.idx]||{})[me]||v===''||v!==v)return;R.child('answers/'+S.idx+'/'+me).set({v})}
+function photo(el){const f=el.files[0];if(!f)return;const i=new Image();
+ i.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,360/Math.max(i.width,i.height));c.width=i.width*s;c.height=i.height*s;
+  c.getContext('2d').drawImage(i,0,0,c.width,c.height);ans(c.toDataURL('image/jpeg',.6))};i.src=URL.createObjectURL(f)}
+
+function voteH(q){const a=A[S.idx]||{},mv=(V[S.idx]||{})[me];
+ let h=`<div class="top"><span>Stemronde</span><span id="tm"></span></div><h2>Stem op de beste foto</h2><p class="tip">${esc(q.q)}</p>`;
+ if(mv)return h+`<p class="ok">Stem verstuurd</p><p id="cnt" class="tip"></p>`;
+ h+='<div class="g">';for(const k in a)if(k!==me)h+=`<img src="${a[k].v}" onclick="vote('${k}')">`;return h+'</div>'}
+function vote(k){if((V[S.idx]||{})[me])return;R.child('votes/'+S.idx+'/'+me).set(k)}
+
+function pts(i){const q=VRAGEN[i],a=A[i]||{},r={},p=q.p||10;
+ if(q.t==='mc')for(const k in a)if(+a[k].v===q.a)r[k]=p;
+ if(q.t==='open'||q.t==='music')for(const k in a)if(q.a.some(x=>norm(x)===norm(a[k].v)))r[k]=p;
+ if(q.t==='guess'){let b=1e18;for(const k in a)b=Math.min(b,Math.abs(a[k].v-q.a));for(const k in a)if(Math.abs(a[k].v-q.a)===b)r[k]=p}
+ if(q.t==='photo'){const v=V[i]||{};for(const k in v)r[v[k]]=(r[v[k]]||0)+5}return r}
+function totals(){const t={};for(const k in P)t[k]=0;const last=(S.phase==='q'||S.phase==='vote')?S.idx-1:S.idx;
+ for(let i=0;i<=last;i++){const r=pts(i);for(const k in r)if(k in t)t[k]+=r[k]}return t}
+function board(fin){const t=totals(),c=CONFIG.CARS.map(()=>0);for(const k in t)c[P[k].c]+=t[k];
+ const top=Math.max(...c);
+ let h=CONFIG.CARS.map((n,i)=>`<div class="car ${fin&&c[i]===top?'w':''}"><span>${esc(n)}</span><span>${c[i]}</span></div>`).join('');
+ h+='<h2>Individueel</h2>'+Object.keys(t).sort((a,b)=>t[b]-t[a]).map(k=>`<div class="r"><span>${esc(P[k].n)} <small>${esc(CONFIG.CARS[P[k].c])}</small></span><b>${t[k]}</b></div>`).join('');return h}
+function revealH(q){const a=A[S.idx]||{},r=pts(S.idx);let h=`<div class="top"><span>Uitslag</span><span id="tm"></span></div><h2>${esc(q.q)}</h2>`;
+ if(q.t==='mc')h+=`<p class="ok">Goed antwoord: ${esc(q.o[q.a])}</p>`;
+ if(q.t==='open'||q.t==='music')h+=`<p class="ok">Goed antwoord: ${esc(q.a[0])}</p>`;
+ if(q.t==='guess')h+=`<p class="ok">Antwoord: ${q.a.toLocaleString('nl-NL')}</p>`;
+ if(q.t==='photo'){h+='<div class="g">'+Object.keys(a).map(k=>`<div><img src="${a[k].v}"><small>${esc(P[k]?P[k].n:'?')} +${r[k]||0}</small></div>`).join('')+'</div>'}
+ else h+=Object.keys(P).map(k=>{const x=a[k];const s=!x?'-':q.t==='mc'?q.o[x.v]:x.v;return `<div class="r"><span>${esc(P[k].n)}: ${esc(s)}</span><b>+${r[k]||0}</b></div>`}).join('');
+ return h+'<h2>Tussenstand</h2>'+board(false)}
+function endH(){return `<h1>Eindstand</h1>`+board(true)}
+
+function go(ph,idx){const q=VRAGEN[idx],n=now(),st={phase:ph,idx};
+ if(ph==='q'){st.start=n+(q.wacht||3)*1000;st.end=st.start+(q.tijd||20)*1000}
+ else{st.start=n;st.end=n+(ph==='vote'?30000:12000)}R.child('state').set(st)}
+function nextQ(){S.idx+1<VRAGEN.length?go('q',S.idx+1):R.child('state').set({phase:'end',idx:S.idx})}
+function skip(){if(S.phase!=='lobby'&&S.phase!=='end')R.child('state/end').set(now()-1)}
+function resetG(){if(confirm('Spel resetten? Spelers blijven staan.'))R.update({state:{phase:'lobby',idx:-1},answers:null,votes:null})}
+
+setInterval(()=>{const n=now(),q=VRAGEN[S.idx],a=A[S.idx]||{},ids=Object.keys(P);
+ if($('tm'))$('tm').textContent=Math.max(0,Math.ceil((S.end-n)/1000))+' s';
+ if($('cd')){const d=Math.ceil((S.start-n)/1000);$('cd').textContent=d>0?(q.t==='music'?'Muziek start over ':'Start over ')+d:'';
+  if($('inp'))$('inp').style.display=d>0?'none':'block'}
+ if($('cnt')){const c=S.phase==='vote'?Object.keys(V[S.idx]||{}).length:Object.keys(a).length;$('cnt').textContent=c+' van '+ids.length+' klaar'}
+ if(!host||fired||S.phase==='lobby'||S.phase==='end'||!q)return;
+ if(S.phase==='q'&&(n>=S.end||(n>=S.start&&ids.every(k=>a[k])))){fired=true;go(q.t==='photo'&&Object.keys(a).length>1?'vote':'reveal',S.idx)}
+ else if(S.phase==='vote'&&(n>=S.end||ids.every(k=>(V[S.idx]||{})[k]))){fired=true;go('reveal',S.idx)}
+ else if(S.phase==='reveal'&&n>=S.end){fired=true;nextQ()}
+},500);
+</script></body></html>
