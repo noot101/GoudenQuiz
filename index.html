@@ -13,7 +13,7 @@ h1{font-size:2.6em;color:var(--gold);text-align:center;margin:.6em 0 .2em;text-s
 .b:active{background:var(--gold);color:var(--bg)}
 .b,.car{backdrop-filter:blur(2px)}
 .row{display:flex;gap:8px}.row .b{flex:1}
-input[type=text],input[type=number],#nm,#tx,#hp{width:100%;padding:14px;border-radius:10px;border:2px solid var(--mut);background:#fff;color:#222;font:inherit;margin:8px 0}
+input[type=text],input[type=number],#nm,#tx,#hp,#wp{width:100%;padding:14px;border-radius:10px;border:2px solid var(--mut);background:#fff;color:#222;font:inherit;margin:8px 0}
 .top{display:flex;justify-content:flex-end;gap:14px;color:var(--mut)}
 .cd{font:700 2.6em Georgia,serif;color:var(--gold);text-align:center;margin:10px 0}
 .ok{color:var(--gold);font-weight:700}.tip,small{color:var(--mut)}
@@ -28,16 +28,19 @@ input[type=text],input[type=number],#nm,#tx,#hp{width:100%;padding:14px;border-r
 .hb button{flex:1;padding:12px;border-radius:8px;border:0;background:#2b4a3c;color:var(--ink);font:inherit;font-weight:600}
 .hb button.rdy{background:var(--gold);color:var(--bg)}
 .hb button.sm{flex:0 0 auto;background:#4a2b2b}
+#ov{position:fixed;inset:0;z-index:20;background:#000d;display:flex;align-items:center;justify-content:center;padding:16px}
+#ov .box{background:#06281c;border:2px solid var(--gold);border-radius:14px;padding:18px;max-width:420px;width:100%}
 </style></head><body><div id="app"></div><div id="ver"></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="config.js"></script><script src="vragen.js"></script>
+<script>var T=Date.now();document.write('<script src="config.js?'+T+'"><\/script><script src="vragen.js?'+T+'"><\/script>')</script>
 <script>
 firebase.initializeApp(CONFIG.firebase);
 const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
-const VERSIE='1.7';
+const VERSIE='1.9';
 const $=id=>document.getElementById(id);
-document.getElementById('ver').textContent='Versie '+VERSIE;
+let hs=0;for(const c of JSON.stringify(VRAGEN))hs=(hs*31+c.charCodeAt(0))>>>0;
+document.getElementById('ver').textContent='Versie '+VERSIE+' · vragen '+hs.toString(36).slice(0,4);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 let off=0,S={phase:'lobby',idx:-1},P={},A={},V={},sig='',curKey='',fired=false;
@@ -127,7 +130,10 @@ function nextQ(i){if(S.phase!=='reveal'||S.idx!==i)return;S.idx+1<VRAGEN.length?
 function showInd(){R.child('state/ind').set(true)}
 function plus15(){if(S.phase==='q')R.child('state/end').set(now()+15000)}
 function toReveal(){if(S.phase!=='q'&&S.phase!=='vote')return;const q=VRAGEN[S.idx];go(S.phase==='q'&&q.t==='photo'&&Object.keys(A[S.idx]||{}).length>1?'vote':'reveal',S.idx)}
-function resetG(){if(confirm('Alles wissen, ook alle spelers? Iedereen kiest daarna opnieuw naam en auto.'))R.set({reset:Date.now()})}
+function resetG(){if($('ov'))return;const d=document.createElement('div');d.id='ov';
+ d.innerHTML='<div class="box"><h2>Alles wissen?</h2><p>Alle spelers, antwoorden en scores worden gewist. Voer de wis-pincode in.</p><input id="wp" type="password" inputmode="numeric" autocomplete="off" placeholder="Wis-pincode"><button class="b" onclick="wipe()">Alles wissen</button><button class="b" onclick="$(\'ov\').remove()">Annuleren</button></div>';
+ document.body.appendChild(d);$('wp').focus()}
+function wipe(){if($('wp').value===(CONFIG.WIPE_PIN||'0000')){$('ov').remove();R.set({reset:Date.now()})}else{alert('Onjuiste pincode');$('wp').value=''}}
 
 setInterval(()=>{const n=now(),q=VRAGEN[S.idx],a=A[S.idx]||{},ids=Object.keys(P);
  if($('tm'))$('tm').textContent=Math.max(0,Math.ceil((S.end-n)/1000))+' s';
