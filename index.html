@@ -6,7 +6,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg) url(achtergrond.jpg) center top/cover fixed no-repeat;min-height:100vh;color:var(--ink);font:17px/1.4 system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 #app{max-width:560px;margin:0 auto;padding:18px 16px 10px}
-#ver{text-align:center;color:var(--mut);font-size:.8em;padding:0 0 140px}
+#ver{text-align:center;color:var(--mut);font-size:.8em;padding:0 0 170px}
 h1,h2{font-family:Georgia,serif;font-weight:700;margin:.3em 0}
 h1{font-size:2.6em;color:var(--gold);text-align:center;margin:.6em 0 .2em;text-shadow:0 0 18px rgba(230,189,85,.35)}h2{font-size:1.35em}
 .b{display:block;width:100%;margin:8px 0;padding:14px;border:2px solid var(--gold);border-radius:10px;background:var(--bg2);color:var(--ink);font:inherit;font-weight:600}
@@ -23,41 +23,49 @@ input[type=text],input[type=number],#nm,#tx,#hp,#wp{width:100%;padding:14px;bord
 .g img{width:100%;border-radius:8px;border:2px solid var(--bg2);display:block}
 .car{display:flex;justify-content:space-between;font:700 1.3em Georgia,serif;padding:10px 14px;margin:6px 0;border-radius:10px;background:var(--bg2)}
 .car.w{background:var(--gold);color:var(--bg)}
-.hb{position:fixed;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#000d}
+.hb{z-index:10;position:fixed;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#000d}
 .hb .hs{flex-basis:100%;text-align:center;font-size:.9em}
-.hb button{flex:1;padding:12px;border-radius:8px;border:0;background:#2b4a3c;color:var(--ink);font:inherit;font-weight:600}
+.hb button{flex:1 1 22%;padding:12px;border-radius:8px;border:0;background:#2b4a3c;color:var(--ink);font:inherit;font-weight:600}
 .hb button.rdy{background:var(--gold);color:var(--bg)}
 .hb button.sm{flex:0 0 auto;background:#4a2b2b}
 #ov{position:fixed;inset:0;z-index:20;background:#000d;display:flex;align-items:center;justify-content:center;padding:16px}
 #ov .box{background:#06281c;border:2px solid var(--gold);border-radius:14px;padding:18px;max-width:420px;width:100%}
-</style></head><body><div id="app"></div><div id="ver"></div>
+#net{display:none;position:fixed;top:0;left:0;right:0;z-index:30;background:#a02020;color:#fff;text-align:center;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;font-size:.9em}
+.jk{padding:8px;font-size:.85em;border-style:dashed}
+#pz{position:fixed;inset:0;z-index:5;background:#000c;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.rules{background:var(--bg2);border:1px solid var(--gold);border-radius:12px;padding:6px 16px;margin:14px 0}
+.rules li{margin:8px 0}
+</style></head><body><div id="app"></div><div id="ver"></div><div id="net">Geen verbinding, we proberen opnieuw...</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>var T=Date.now();document.write('<script src="config.js?'+T+'"><\/script><script src="vragen.js?'+T+'"><\/script>')</script>
 <script>
+const REGELS=CONFIG.REGELS||['Antwoord op je eigen telefoon. Antwoorden zijn pas zichtbaar bij de uitslag.','Bestuurders spelen niet mee en houden hun telefoon niet vast. Passagiers spelen wel mee.','De host bepaalt wanneer het verder gaat en kan pauzeren.','Bij muziek start één passagier per auto het nummer, zodat het via de autoradio te horen is.','Foto-opdracht: maak een foto en stem daarna op de beste foto van een ander.','Joker: elke auto heeft één joker. Tik tijdens een vraag op Joker inzetten. Alle passagiers in jouw auto krijgen dan dubbele punten voor die vraag. Dit kan maar één keer per auto.'];
 firebase.initializeApp(CONFIG.firebase);
 const db=firebase.database(),R=db.ref('rooms/'+CONFIG.ROOM);
-const VERSIE='1.9';
+const VERSIE='2.0';
 const $=id=>document.getElementById(id);
 let hs=0;for(const c of JSON.stringify(VRAGEN))hs=(hs*31+c.charCodeAt(0))>>>0;
 document.getElementById('ver').textContent='Versie '+VERSIE+' · vragen '+hs.toString(36).slice(0,4);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-let off=0,S={phase:'lobby',idx:-1},P={},A={},V={},sig='',curKey='',fired=false;
+let off=0,S={phase:'lobby',idx:-1},P={},A={},V={},J={},up=false,cfDone=false,sig='',curKey='',fired=false;
 let me=localStorage.getItem('g50pid'),host=false,RS=0;
 db.ref('.info/serverTimeOffset').on('value',s=>off=s.val()||0);
 const now=()=>Date.now()+off;
-R.on('value',s=>{const v=s.val()||{};S=v.state||{phase:'lobby',idx:-1};P=v.players||{};A=v.answers||{};V=v.votes||{};RS=v.reset||0;host=localStorage.getItem('g50host')===String(RS);
+db.ref('.info/connected').on('value',s=>up=s.val()===true);
+R.on('value',s=>{const v=s.val()||{};S=v.state||{phase:'lobby',idx:-1};P=v.players||{};A=v.answers||{};V=v.votes||{};J=v.jokers||{};RS=v.reset||0;host=localStorage.getItem('g50host')===String(RS);
  render()});
 
 function render(){const my=(A[S.idx]||{})[me],mv=(V[S.idx]||{})[me];
- const s=[S.phase,S.idx,!!S.ind,!!P[me],!!my,!!mv,Object.keys(P).length,host].join();if(s===sig)return;sig=s;draw()}
+ const s=[S.phase,S.idx,!!S.ind,!!P[me],!!my,!!mv,Object.keys(P).length,host,!!S.pause,J['c'+(P[me]?P[me].c:'x')]].join();if(s===sig)return;sig=s;draw()}
 function draw(){const q=VRAGEN[S.idx];let h;
  if(!P[me])h=joinH();else if(S.phase==='lobby')h=lobbyH();else if(S.phase==='q')h=qH(q);
  else if(S.phase==='vote')h=voteH(q);else if(S.phase==='reveal')h=revealH(q);else h=endH();
- $('app').innerHTML=h+(host?hostBar():'')}
+ $('app').innerHTML=h+(host?hostBar():'')+(S.pause&&S.phase!=='lobby'?'<div id="pz"><h1>Pauze</h1><p>Even geduld, we gaan zo verder.</p></div>':'');
+ if(S.phase==='end'){if(!cfDone){cfDone=true;confetti()}}else cfDone=false}
 function hostBar(){const p=S.phase;let h='<div class="hb">';
- if(p==='q'||p==='vote')h+='<div id="hs" class="hs"></div>'+(p==='q'?'<button onclick="plus15()">+15 sec</button>':'')+'<button id="hn" onclick="toReveal()">Toon uitslag</button>';
+ if(p==='q'||p==='vote')h+='<div id="hs" class="hs"></div>'+(p==='q'?'<button onclick="plus15()">+15 sec</button>':'')+(S.pause?'<button class="rdy" onclick="doorgaan()">Doorgaan</button>':'<button onclick="pauze()">Pauze</button>')+'<button id="hn" onclick="toReveal()">Toon uitslag</button>';
  else if(p==='end'&&!S.ind)h+='<button class="rdy" onclick="showInd()">Toon individuele stand</button>';
  else if(p==='reveal')h+=`<button class="rdy" onclick="nextQ(${S.idx})">${S.idx+1<VRAGEN.length?'Volgende vraag':'Eindstand'}</button>`;
  return h+'<button class="sm" onclick="resetG()">Alles wissen</button></div>'}
@@ -65,7 +73,7 @@ function hostBar(){const p=S.phase;let h='<div class="hb">';
 function joinH(){return `<h1>Gouden Quiz</h1><h2>Voor ons gouden bruidspaar</h2><input id="nm" placeholder="Jouw naam" maxlength="14"><p>In welke auto zit je?</p><div class="row">${CONFIG.CARS.map((c,i)=>`<button class="b" onclick="join(${i})">${esc(c)}</button>`).join('')}</div>`}
 function join(c){const n=$('nm').value.trim();if(!n){alert('Vul eerst je naam in');return}
  me=me||Math.random().toString(36).slice(2,9);localStorage.setItem('g50pid',me);R.child('players/'+me).set({n,c})}
-function lobbyH(){let h=`<h1>Gouden Quiz</h1><p>Wacht tot de host het spel start.</p>`;
+function lobbyH(){let h=`<h1>Gouden Quiz</h1><p>Wacht tot de host het spel start.</p><div class="rules"><h2>Zo werkt het</h2><ul>${REGELS.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`;
  CONFIG.CARS.forEach((c,i)=>{h+=`<h2>${esc(c)}</h2><p>${Object.values(P).filter(p=>p.c===i).map(p=>esc(p.n)).join(', ')||'-'}</p>`});
  if(host)h+=`<button class="b" onclick="go('q',0)">Start het spel</button>`;
  else h+=`<div id="hl"><button class="b" onclick="hostForm()">Ik ben host</button></div>`;return h}
@@ -76,6 +84,7 @@ function qH(q){const my=(A[S.idx]||{})[me];
  let h=`<div class="top"><span>Vraag ${S.idx+1} van ${VRAGEN.length}</span><span id="tm"></span></div><div id="cd" class="cd"></div><h2>${esc(q.q)}</h2>`;
  if(q.tip)h+=`<p class="tip">${esc(q.tip)}</p>`;
  if(/^https?:\/\//.test(q.link||''))h+=`<a id="lk" class="b" style="display:none;text-align:center;text-decoration:none" href="${esc(q.link)}" target="_blank" rel="noopener">Open nummer in Spotify</a>`;
+ h+=jokerH();
  if(my)return h+`<p class="ok">Antwoord verstuurd</p><p id="cnt" class="tip"></p>`;
  h+='<p id="tu" class="ok" style="display:none">De tijd is om. Wacht op de host.</p><div id="inp" style="display:none">';
  if(q.t==='mc')h+=q.o.map((o,i)=>`<button class="b" onclick="ans(${i})">${esc(o)}</button>`).join('');
@@ -84,16 +93,16 @@ function qH(q){const my=(A[S.idx]||{})[me];
  return h+'</div><p id="cnt" class="tip"></p>'}
 function sendTx(){const q=VRAGEN[S.idx],t=$('tx').value.trim();
  ans(q.t==='guess'?parseFloat(t.replace(/\./g,'').replace(',','.')):t)}
-function ans(v){const n=now();if(n<S.start||n>S.end+1500||(A[S.idx]||{})[me]||v===''||v!==v)return;R.child('answers/'+S.idx+'/'+me).set({v})}
+function ans(v){const n=now();if(S.pause||n<S.start||n>S.end+1500||(A[S.idx]||{})[me]||v===''||v!==v)return;R.child('answers/'+S.idx+'/'+me).set({v})}
 function photo(el){const f=el.files[0];if(!f)return;const i=new Image();
- i.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,360/Math.max(i.width,i.height));c.width=i.width*s;c.height=i.height*s;
+ i.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,640/Math.max(i.width,i.height));c.width=i.width*s;c.height=i.height*s;
   c.getContext('2d').drawImage(i,0,0,c.width,c.height);ans(c.toDataURL('image/jpeg',.6))};i.src=URL.createObjectURL(f)}
 
 function voteH(q){const a=A[S.idx]||{},mv=(V[S.idx]||{})[me];
  let h=`<div class="top"><span>Stemronde</span></div><h2>Stem op de beste foto</h2><p class="tip">${esc(q.q)}</p>`;
  if(mv)return h+`<p class="ok">Stem verstuurd</p><p id="cnt" class="tip"></p>`;
  h+='<div class="g">';for(const k in a)if(k!==me)h+=`<img src="${a[k].v}" onclick="vote('${k}')">`;return h+'</div>'}
-function vote(k){if((V[S.idx]||{})[me])return;R.child('votes/'+S.idx+'/'+me).set(k)}
+function vote(k){if(S.pause||(V[S.idx]||{})[me])return;R.child('votes/'+S.idx+'/'+me).set(k)}
 
 function lev(a,b){let d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let pr=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,pr+(a[i-1]===b[j-1]?0:1));pr=t}}return d[b.length]}
 function match(v,list){const x=norm(v);if(!x)return 0;let best=0;
@@ -105,7 +114,8 @@ function pts(i){const q=VRAGEN[i],a=A[i]||{},r={},p=q.p||10;
  if(q.t==='mc')for(const k in a)if(+a[k].v===q.a)r[k]=p;
  if(q.t==='open'||q.t==='music')for(const k in a){const m=match(a[k].v,q.a);if(m)r[k]=Math.round(p*m)}
  if(q.t==='guess'){let b=1e18;for(const k in a)b=Math.min(b,Math.abs(a[k].v-q.a));for(const k in a)if(Math.abs(a[k].v-q.a)===b)r[k]=p}
- if(q.t==='photo'){const v=V[i]||{};for(const k in v)r[v[k]]=(r[v[k]]||0)+5}return r}
+ if(q.t==='photo'){const v=V[i]||{};for(const k in v)r[v[k]]=(r[v[k]]||0)+5}
+ for(const k in r)if(P[k]&&J['c'+P[k].c]===i)r[k]*=2;return r}
 function totals(){const t={};for(const k in P)t[k]=0;const last=(S.phase==='q'||S.phase==='vote')?S.idx-1:S.idx;
  for(let i=0;i<=last;i++){const r=pts(i);for(const k in r)if(k in t)t[k]+=r[k]}return t}
 function board(fin){const t=totals(),c=CONFIG.CARS.map(()=>0);for(const k in t)c[P[k].c]+=t[k];
@@ -115,27 +125,52 @@ function board(fin){const t=totals(),c=CONFIG.CARS.map(()=>0);for(const k in t)c
  if(!S.ind)return h+'<p class="tip">De individuele stand wordt zo onthuld...</p>';
  h+='<h2>Individueel</h2>'+Object.keys(t).sort((a,b)=>t[b]-t[a]).map(k=>`<div class="r"><span>${esc(P[k].n)} <small>${esc(CONFIG.CARS[P[k].c])}</small></span><b>${t[k]}</b></div>`).join('');return h}
 function revealH(q){const a=A[S.idx]||{},r=pts(S.idx);let h=`<div class="top"><span>Uitslag</span></div><h2>${esc(q.q)}</h2>`;
+ CONFIG.CARS.forEach((n,i)=>{if(J['c'+i]===S.idx)h+=`<p class="ok">${esc(n)} zette de joker in: dubbele punten!</p>`});
  if(q.t==='mc')h+=`<p class="ok">Goed antwoord: ${esc(q.o[q.a])}</p>`;
  if(q.t==='open'||q.t==='music')h+=`<p class="ok">Goed antwoord: ${esc(q.a[0])}</p>`;
  if(q.t==='guess')h+=`<p class="ok">Antwoord: ${q.a.toLocaleString('nl-NL')}</p>`;
  if(q.t==='photo'){h+='<div class="g">'+Object.keys(a).map(k=>`<div><img src="${a[k].v}"><small>${esc(P[k]?P[k].n:'?')} +${r[k]||0}</small></div>`).join('')+'</div>'}
  else h+=Object.keys(P).map(k=>{const x=a[k];const s=!x?'-':q.t==='mc'?q.o[x.v]:x.v;return `<div class="r"><span>${esc(P[k].n)}: ${esc(s)}</span><b>+${r[k]||0}</b></div>`}).join('');
  return h+'<h2>Tussenstand</h2>'+board(false)}
-function endH(){return `<h1>Eindstand</h1>`+board(true)}
+function carTot(){const t=totals(),c=CONFIG.CARS.map(()=>0);for(const k in t)c[P[k].c]+=t[k];return c}
+function endH(){const c=carTot(),top=Math.max(...c),w=c.map((v,i)=>v===top?i:-1).filter(i=>i>=0);
+ return `<h1>Eindstand</h1><h2 style="text-align:center">${w.length>1?'Gelijkspel!':esc(CONFIG.CARS[w[0]])+' wint!'}</h2>`+board(true)+galH()}
+function galH(){let h='';VRAGEN.forEach((q,i)=>{if(q.t!=='photo')return;const a=A[i]||{},ks=Object.keys(a);if(!ks.length)return;
+ h+=`<p class="tip">${esc(q.q)}</p><div class="g">`+ks.map(k=>`<div><img src="${a[k].v}" onclick="viewImg(this.src)"><small>${esc(P[k]?P[k].n:'?')}</small></div>`).join('')+'</div>'});
+ return h?'<h2 style="margin-top:1.4em">Foto\'s van de rit</h2><p class="tip">Tik op een foto om hem groot te zien. Houd hem vast om op te slaan.</p>'+h:''}
+function viewImg(src){if($('ov'))return;const d=document.createElement('div');d.id='ov';
+ d.innerHTML='<div class="box" style="text-align:center"><img src="'+src+'" style="max-width:100%;max-height:70vh;border-radius:8px"><button class="b" onclick="$(\'ov\').remove()">Sluiten</button></div>';document.body.appendChild(d)}
+function jokerH(){if(!P[me]||S.phase!=='q')return '';const u=J['c'+P[me].c];
+ if(u==null)return '<button class="b jk" onclick="joker()">Joker inzetten (dubbele punten)</button>';
+ if(u===S.idx)return '<p class="ok">Joker actief: dubbele punten voor jouw auto!</p>';
+ return '<p class="tip">De joker van jouw auto is al gebruikt.</p>'}
+function joker(){if(S.phase!=='q'||S.pause||now()>S.end||!P[me])return;
+ if(!confirm('Joker inzetten? Alle passagiers in jouw auto krijgen dubbele punten voor deze vraag. Dit kan maar één keer per auto.'))return;
+ const i=S.idx;R.child('jokers/c'+P[me].c).transaction(c=>c==null?i:undefined)}
+function pauze(){if((S.phase==='q'||S.phase==='vote')&&!S.pause)R.child('state/pause').set(now())}
+function doorgaan(){if(!S.pause)return;const d=now()-S.pause;R.child('state').update({pause:null,start:S.start+d,end:S.end+d})}
+function confetti(){if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+ const c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:15';c.width=innerWidth;c.height=innerHeight;document.body.appendChild(c);
+ const x=c.getContext&&c.getContext('2d');if(!x){c.remove();return}const col=['#e6bd55','#f7e08a','#c99a2e','#fff3c4'];
+ const p=Array.from({length:130},()=>({x:Math.random()*c.width,y:-Math.random()*c.height*.7,w:5+Math.random()*6,h:8+Math.random()*8,vy:2+Math.random()*3,vx:-1+Math.random()*2,r:Math.random()*6,vr:-.2+Math.random()*.4,c:col[Math.random()*4|0]}));
+ const t0=performance.now();(function f(t){x.clearRect(0,0,c.width,c.height);
+  p.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.r+=q.vr;x.save();x.translate(q.x,q.y);x.rotate(q.r);x.fillStyle=q.c;x.fillRect(-q.w/2,-q.h/2,q.w,q.h);x.restore()});
+  if(t-t0<4500)requestAnimationFrame(f);else c.remove()})(t0)}
 
 function go(ph,idx){const q=VRAGEN[idx],n=now(),st={phase:ph,idx};
  if(ph==='q'){st.start=n+(q.wacht||3)*1000;st.end=st.start+(q.tijd||20)*1000}
  else{st.start=n;st.end=n+(ph==='vote'?30000:12000)}R.child('state').set(st)}
 function nextQ(i){if(S.phase!=='reveal'||S.idx!==i)return;S.idx+1<VRAGEN.length?go('q',S.idx+1):R.child('state').set({phase:'end',idx:S.idx})}
 function showInd(){R.child('state/ind').set(true)}
-function plus15(){if(S.phase==='q')R.child('state/end').set(now()+15000)}
+function plus15(){if(S.phase==='q'&&!S.pause)R.child('state/end').set(now()+15000)}
 function toReveal(){if(S.phase!=='q'&&S.phase!=='vote')return;const q=VRAGEN[S.idx];go(S.phase==='q'&&q.t==='photo'&&Object.keys(A[S.idx]||{}).length>1?'vote':'reveal',S.idx)}
 function resetG(){if($('ov'))return;const d=document.createElement('div');d.id='ov';
  d.innerHTML='<div class="box"><h2>Alles wissen?</h2><p>Alle spelers, antwoorden en scores worden gewist. Voer de wis-pincode in.</p><input id="wp" type="password" inputmode="numeric" autocomplete="off" placeholder="Wis-pincode"><button class="b" onclick="wipe()">Alles wissen</button><button class="b" onclick="$(\'ov\').remove()">Annuleren</button></div>';
  document.body.appendChild(d);$('wp').focus()}
 function wipe(){if($('wp').value===(CONFIG.WIPE_PIN||'0000')){$('ov').remove();R.set({reset:Date.now()})}else{alert('Onjuiste pincode');$('wp').value=''}}
 
-setInterval(()=>{const n=now(),q=VRAGEN[S.idx],a=A[S.idx]||{},ids=Object.keys(P);
+setInterval(()=>{const n=S.pause||now();$('net').style.display=(!up&&Date.now()-T>4000)?'block':'none';
+ const q=VRAGEN[S.idx],a=A[S.idx]||{},ids=Object.keys(P);
  if($('tm'))$('tm').textContent=Math.max(0,Math.ceil((S.end-n)/1000))+' s';
  if($('cd')){const d=Math.ceil((S.start-n)/1000);$('cd').textContent=d>0?(q.t==='music'?'Muziek start over ':'Start over ')+d:'';
   if($('inp'))$('inp').style.display=(d>0||n>S.end)?'none':'block';
